@@ -4,6 +4,8 @@
    themes: light --default, dark ;
 }
 
+@import "leaflet/dist/leaflet.css";
+
 @plugin "daisyui/theme" {
   name: "light";
   default: true;

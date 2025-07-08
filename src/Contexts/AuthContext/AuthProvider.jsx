@@ -1,38 +1,53 @@
 import React, { useEffect, useState } from 'react';
 import { AuthContext } from './AuthContext';
-import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, GoogleAuthProvider, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
 import { auth } from '../../Firebase/firebase.init';
 
-const AuthProvider = ({children}) => {
+const googleProvider = new GoogleAuthProvider();
 
-    const [user,setUser]=useState(null);
-    const [loading,setLoading]=useState(true);
+const AuthProvider = ({ children }) => {
 
-    const createUser=(email,password)=>{
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    const createUser = (email, password) => {
         setLoading(true)
-        return createUserWithEmailAndPassword(auth,email,password)
+        return createUserWithEmailAndPassword(auth, email, password)
     }
 
-    const signIn=(email,password)=>{
+    const signIn = (email, password) => {
         setLoading(true);
-        return signInWithEmailAndPassword(auth,email,password)
+        return signInWithEmailAndPassword(auth, email, password)
     }
 
-    useEffect(()=>{
-        const unSubscribe=onAuthStateChanged(auth,currentUser=>{
+    const signInWithGoogle = () => {
+        setLoading(true);
+        return signInWithPopup(auth, googleProvider)
+    }
+
+    const logOut = () => {
+        setLoading(true);
+        return signOut(auth)
+    }
+
+    useEffect(() => {
+        const unSubscribe = onAuthStateChanged(auth, currentUser => {
             setUser(currentUser);
+            console.log('user in the auth state change', currentUser)
             setLoading(false)
         })
-        return ()=>{
+        return () => {
             unSubscribe();
         }
-    },[])
+    }, [])
 
-    const authInfo={
+    const authInfo = {
         user,
         loading,
         createUser,
-        signIn
+        signIn,
+        logOut,
+        signInWithGoogle
     }
     return (
         <AuthContext value={authInfo}>

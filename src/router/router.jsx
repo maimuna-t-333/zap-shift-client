@@ -8,6 +8,7 @@ import RootLayout from "../Layout/RootLayput";
 import AuthLayout from "../Layout/AuthLayout";
 import Login from "../Pages/Authentication/Login/Login";
 import Register from "../Pages/Authentication/Register/Register";
+import Coverage from "../Pages/Coverage/Coverage";
 
 
 
@@ -19,6 +20,10 @@ export const router = createBrowserRouter([
         {
             index:true,
             Component:Home
+        },
+        {
+          path:'coverage',
+          Component:Coverage
         }
     ]
   },
