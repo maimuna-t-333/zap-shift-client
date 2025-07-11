@@ -1,11 +1,16 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
-import toast, { Toaster } from "react-hot-toast";
+import Swal from "sweetalert2";
 import { districts } from "../../../src/data/districts.js";
 import { serviceCenters } from "../../../src/data/serviceCenters.js";
+import useAuth from "../../hooks/useAuth.jsx";
+import useAxiosSecure from "../../hooks/useAxiosSecure.jsx";
+import axios from "axios";
 
 const SendParcel = () => {
-    const [confirmedData, setConfirmedData] = useState(null);
+
+    
+    
 
     const {
         register,
@@ -14,6 +19,8 @@ const SendParcel = () => {
         reset,
         formState: { errors },
     } = useForm();
+    const { user } = useAuth();
+    const axiosSecure=useAxiosSecure();
 
     const watchSenderRegion = watch("senderRegion");
     const senderCenters = serviceCenters[watchSenderRegion] || [];
@@ -23,54 +30,138 @@ const SendParcel = () => {
 
     const watchType = watch("type");
 
-    const onSubmit = (data) => {
-        // Calculate cost
-        let baseCost = data.type === "document" ? 50 : 80;
-        if (data.type === "non-document" && data.weight) {
-            baseCost += parseInt(data.weight) * 10;
-        }
-        if (data.senderServiceCenter !== data.receiverServiceCenter) {
-            baseCost += 30;
-        }
+    
 
-        // Show toast with confirm button
-        toast((t) => (
-            <span>
-                Delivery cost: <strong>{baseCost} Taka</strong>
-                <br />
-                <button
-                    className="btn btn-primary btn-sm mt-2"
-                    onClick={() => {
-                        const parcelWithDate = {
-                            ...data,
-                            creation_date: new Date().toISOString(),
-                        };
-                        // Mock save
-                        console.log("Saved Parcel:", parcelWithDate);
-                        toast.dismiss(t.id);
-                        toast.success("Parcel saved successfully!");
-                        reset();
-                    }}
-                >
-                    Confirm
-                </button>
-            </span>
-        ));
+    const formatDateTime = (isoString) => {
+        const options = {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+        };
+        return new Date(isoString).toLocaleString("en-US", options);
     };
 
+    
+
+    const onSubmit = (data) => {
+        const weight = parseFloat(data.weight) || 0;
+        let baseCost = 0;
+        let weightCost = 0;
+        let zoneCost = 0;
+
+        if (data.type === "document") {
+            baseCost = 60;
+            if (data.senderServiceCenter !== data.receiverServiceCenter) {
+                zoneCost = 20;
+            }
+        } else if (data.type === "non-document") {
+            if (weight <= 3) {
+                baseCost = 110;
+                if (data.senderServiceCenter !== data.receiverServiceCenter) {
+                    zoneCost = 40;
+                }
+            } else {
+                baseCost = 110;
+                if (data.senderServiceCenter !== data.receiverServiceCenter) {
+                    zoneCost = 40;
+                }
+                weightCost = (weight - 3) * 40;
+            }
+        }
+
+        const totalCost = baseCost + weightCost + zoneCost;
+
+        const now = new Date();
+        const trackingId = "PKG" + Math.floor(Math.random() * 1000000);
+
+        const parcelWithDate = {
+            ...data,
+            trackingId,
+            creation_date: now.toISOString(),
+            createdBy: user ? user.uid : null,
+            status: "Pending",
+        };
+
+        console.log('ready for payment', parcelWithDate)
+
+        //save data to the server
+
+        
+
+        axiosSecure.post('/parcels',parcelWithDate)
+        // axiosSecure.get(`/parcels?createdBy=${user.uid}`)
+        .then(res=>{
+            console.log(res.data)
+        })
+
+
+        Swal.fire({
+            title: "Confirm Parcel Details",
+            html: `
+        <div style="text-align: left;">
+          <p><strong>Tracking ID:</strong> ${trackingId}</p>
+          <p><strong>Created By:</strong> ${user?.displayName || user?.email || "Unknown"}</p>
+          <p><strong>Created On:</strong> ${formatDateTime(now.toISOString())}</p>
+          <hr>
+          <p><strong>Product Name:</strong> ${data.title}</p>
+          <p><strong>Parcel Type:</strong> ${data.type === "document" ? "Document" : "Non-Document"}</p>
+          <p><strong>Weight:</strong> ${weight} kg</p>
+          <p><strong>Sender:</strong> ${data.senderName} (${data.senderContact})</p>
+          <p><strong>Receiver:</strong> ${data.receiverName} (${data.receiverContact})</p>
+          <p><strong>From:</strong> ${data.senderRegion} - ${data.senderServiceCenter}</p>
+          <p><strong>To:</strong> ${data.receiverRegion} - ${data.receiverServiceCenter}</p>
+          <hr>
+          <p><strong>Base Cost:</strong> ৳${baseCost}</p>
+          ${weightCost > 0 ? `<p><strong>Extra Weight Cost:</strong> ৳${weightCost}</p>` : ""}
+          ${zoneCost > 0 ? `<p><strong>Outside District Cost:</strong> ৳${zoneCost}</p>` : ""}
+          <p style="font-size: 1.1em;"><strong>Total Cost:</strong> ৳${totalCost}</p>
+        </div>
+      `,
+            icon: "info",
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonText: "Proceed",
+            denyButtonText: "Edit",
+            cancelButtonText: "Cancel",
+            reverseButtons: true,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                console.log("Saved Parcel:", parcelWithDate);
+                Swal.fire("Success!", "Parcel saved successfully.", "success");
+                reset();
+            } else if (result.isDenied) {
+                Swal.fire("Edit your parcel information.", "", "info");
+            }
+        });
+    };
+
+    
+
     return (
-        <div className="max-w-3xl mx-auto p-6 space-y-6  ">
-            <Toaster />
+        <div className="max-w-3xl mx-auto p-6 space-y-6">
             <h2 className="text-2xl font-bold text-center">Send a Parcel</h2>
-            <p className="text-gray-600 text-center">
-                Please provide pickup and delivery details.
-            </p>
-
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 border p-10 rounded">
+            {user && (
+                <p className="text-gray-600 text-center">
+                    Logged in as: <strong>{user.displayName || user.email}</strong>
+                </p>
+            )}
+            <form
+                onSubmit={handleSubmit(onSubmit)}
+                className="space-y-8 border p-10 rounded"
+            >
                 {/* Parcel Info */}
-
                 <div className="space-y-4 border p-4 rounded">
                     <h3 className="text-xl font-semibold">Parcel Info</h3>
+                    <input
+                        {...register("title", { required: "Product name is required" })}
+                        placeholder="Product Name"
+                        className="input input-bordered w-full"
+                    />
+                    {errors.title && (
+                        <p className="text-red-500">{errors.title.message}</p>
+                    )}
 
                     <div>
                         <label className="font-medium">Parcel Type:</label>
@@ -94,22 +185,21 @@ const SendParcel = () => {
                                 Non-Document
                             </label>
                         </div>
-                        {errors.type && <p className="text-red-500">{errors.type.message}</p>}
+                        {errors.type && (
+                            <p className="text-red-500">{errors.type.message}</p>
+                        )}
                     </div>
-                    {watch("type") === "non-document" && (
-                        <input
-                            {...register("weight")}
-                            type="number"
-                            placeholder="Weight (optional)"
-                            className="input input-bordered w-full"
-                        />
+
+                    <input
+                        {...register("weight", { required: "Weight is required" })}
+                        type="number"
+                        placeholder="Weight (in kg)"
+                        className="input input-bordered w-full"
+                    />
+                    {errors.weight && (
+                        <p className="text-red-500">{errors.weight.message}</p>
                     )}
                 </div>
-
-
-
-
-
 
                 {/* Sender Info */}
                 <div className="space-y-4 border p-4 rounded">
@@ -119,7 +209,7 @@ const SendParcel = () => {
                             <input
                                 {...register("senderName", { required: "Sender name is required" })}
                                 placeholder="Sender Name"
-                                defaultValue="Current User"
+                                // defaultValue="Name"
                                 className="input input-bordered w-full"
                             />
                             {errors.senderName && (
@@ -274,7 +364,7 @@ const SendParcel = () => {
 
 
                 <button className="btn btn-primary text-black" type="submit">
-                    Submit Parcel
+                    Add Parcel
                 </button>
             </form>
         </div>
@@ -282,3 +372,7 @@ const SendParcel = () => {
 };
 
 export default SendParcel;
+
+
+
+
