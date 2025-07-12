@@ -1,85 +1,141 @@
-import React, { useEffect, useState } from "react";
-// import useAuth from "../../hooks/useAuth";
-// import useAxiosSecure from "../../hooks/useAxiosSecure";
+import { useEffect, useState } from "react";
+import axios from "axios";
 import useAuth from "../../../hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
 import useAxiosSecure from "../../../hooks/useAxiosSecure";
+import Swal from "sweetalert2";
+
 
 const MyParcels = () => {
-  const { user } = useAuth();
-  const axiosSecure = useAxiosSecure();
 
-  const [parcels, setParcels] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+    const [parcels, setParcels] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-useEffect(() => {
-  if (user?.uid) {
-    axiosSecure
-      .get(`/parcels?createdBy=${user.uid}`)
-      .then((res) => {
-        setParcels(res.data);
-      })
-      .catch((err) => console.error(err));
-  }
-}, [user, axiosSecure]);
+    const { user } = useAuth();
+    const axiosSecure = useAxiosSecure();
+    const { data: Parcels = [] } = useQuery({
+        queryKey: ['my-parcels', user?.email],
+        queryFn: async () => {
+            const res = await axiosSecure.get(`parcels?email=${user.email}`)
+            return res.data;
+        }
+    })
 
-  if (loading) {
+    console.log(Parcels)
+
+    useEffect(() => {
+        axios
+            .get("http://localhost:5000/parcels")
+            .then((res) => {
+                setParcels(res.data);
+                setLoading(false);
+            })
+            .catch((error) => {
+                console.error("Error fetching parcels:", error);
+                setLoading(false);
+            });
+    }, []);
+
+
+    const handleDelete = async (id) => {
+        const confirm = await Swal.fire({
+            title: "Are you sure?",
+            text: "This parcel will be deleted permanently.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Yes, delete it!",
+        });
+
+        if (confirm.isConfirmed) {
+            try {
+                const res = await fetch(`http://localhost:5000/parcels/${id}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+
+                if (data.deletedCount) {
+                    Swal.fire("Deleted!", "The parcel has been removed.", "success");
+
+                    // Remove from state
+                    setParcels((prev) => prev.filter((p) => p._id !== id));
+                } else {
+                    Swal.fire("Error!", "Parcel not found.", "error");
+                }
+            } catch (error) {
+                console.error("Delete error:", error);
+                Swal.fire("Error!", "Failed to delete parcel.", "error");
+            }
+        }
+    };
+
+
+
+    if (loading) {
+        return <div className="text-center py-10">Loading parcels...</div>;
+    }
+
+
     return (
-      <div className="flex justify-center items-center py-10">
-        <span className="loading loading-spinner loading-lg"></span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center text-red-500 py-10">
-        {error}
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-6">My Parcels</h2>
-      {parcels.length === 0 ? (
-        <p className="text-gray-600">You have not created any parcels yet.</p>
-      ) : (
-        <div className="space-y-4">
-          {parcels.map((parcel) => (
-            <div
-              key={parcel._id}
-              className="border rounded p-4 shadow-sm bg-white"
-            >
-              <h3 className="text-lg font-semibold">{parcel.title}</h3>
-              <p>
-                <strong>Tracking ID:</strong> {parcel.trackingId}
-              </p>
-              <p>
-                <strong>Status:</strong> {parcel.status}
-              </p>
-              <p>
-                <strong>Type:</strong> {parcel.type}
-              </p>
-              <p>
-                <strong>Weight:</strong> {parcel.weight} kg
-              </p>
-              <p>
-                <strong>From:</strong> {parcel.senderRegion} - {parcel.senderServiceCenter}
-              </p>
-              <p>
-                <strong>To:</strong> {parcel.receiverRegion} - {parcel.receiverServiceCenter}
-              </p>
-              <p>
-                <strong>Created On:</strong>{" "}
-                {new Date(parcel.creation_date).toLocaleString()}
-              </p>
+        <div className="p-4 max-w-6xl mx-auto">
+            <h2 className="text-2xl font-bold mb-4">All Parcels</h2>
+            <div className="overflow-x-auto">
+                <table className="table w-full border">
+                    <thead>
+                        <tr className="bg-gray-200">
+                            <th>Tracking ID</th>
+                            <th>Title</th>
+                            <th>Sender</th>
+                            <th>Receiver</th>
+                            <th>Status</th>
+                            <th>Cost</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {parcels.map((parcel) => (
+                            <tr key={parcel._id}>
+                                <td>{parcel.tracking_id}</td>
+                                <td>{parcel.title}</td>
+                                <td>{parcel.senderName}</td>
+                                <td>{parcel.receiverName}</td>
+                                <td>{parcel.delivery_status}</td>
+                                <td>৳{parcel.cost}</td>
+                                <td className="space-x-2">
+                                    <button
+                                        onClick={() => Swal.fire(JSON.stringify(parcel, null, 2))}
+                                        className="btn btn-xs btn-info"
+                                    >
+                                        View
+                                    </button>
+                                    <button
+                                        onClick={() => alert(`Details for ${parcel.tracking_id}`)}
+                                        className="btn text-black btn-xs btn-primary"
+                                    >
+                                        Details
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(parcel._id)}
+                                        className="btn btn-xs btn-error"
+                                    >
+                                        Delete
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                        {parcels.length === 0 && (
+                            <tr>
+                                <td colSpan="7" className="text-center py-4">
+                                    No parcels found.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
             </div>
-          ))}
         </div>
-      )}
-    </div>
-  );
+
+    );
 };
 
 export default MyParcels;
+

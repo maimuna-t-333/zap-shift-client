@@ -9,8 +9,8 @@ import axios from "axios";
 
 const SendParcel = () => {
 
-    
-    
+
+
 
     const {
         register,
@@ -20,7 +20,7 @@ const SendParcel = () => {
         formState: { errors },
     } = useForm();
     const { user } = useAuth();
-    const axiosSecure=useAxiosSecure();
+    const axiosSecure = useAxiosSecure();
 
     const watchSenderRegion = watch("senderRegion");
     const senderCenters = serviceCenters[watchSenderRegion] || [];
@@ -30,7 +30,7 @@ const SendParcel = () => {
 
     const watchType = watch("type");
 
-    
+
 
     const formatDateTime = (isoString) => {
         const options = {
@@ -43,7 +43,7 @@ const SendParcel = () => {
         return new Date(isoString).toLocaleString("en-US", options);
     };
 
-    
+
 
     const onSubmit = (data) => {
         const weight = parseFloat(data.weight) || 0;
@@ -78,47 +78,43 @@ const SendParcel = () => {
 
         const parcelWithDate = {
             ...data,
-            trackingId,
-            creation_date: now.toISOString(),
-            createdBy: user ? user.uid : null,
-            status: "Pending",
+            cost: totalCost,
+            created_by_uid: user.uid,
+            created_by_email: user.email,
+            payment_status: 'unpaid',
+            delivery_status: 'not_collected',
+            creation_date: new Date().toISOString(),
+            tracking_id: trackingId,
         };
 
         console.log('ready for payment', parcelWithDate)
 
         //save data to the server
 
-        
-
-        axiosSecure.post('/parcels',parcelWithDate)
-        // axiosSecure.get(`/parcels?createdBy=${user.uid}`)
-        .then(res=>{
-            console.log(res.data)
-        })
 
 
         Swal.fire({
             title: "Confirm Parcel Details",
             html: `
-        <div style="text-align: left;">
-          <p><strong>Tracking ID:</strong> ${trackingId}</p>
-          <p><strong>Created By:</strong> ${user?.displayName || user?.email || "Unknown"}</p>
-          <p><strong>Created On:</strong> ${formatDateTime(now.toISOString())}</p>
-          <hr>
-          <p><strong>Product Name:</strong> ${data.title}</p>
-          <p><strong>Parcel Type:</strong> ${data.type === "document" ? "Document" : "Non-Document"}</p>
-          <p><strong>Weight:</strong> ${weight} kg</p>
-          <p><strong>Sender:</strong> ${data.senderName} (${data.senderContact})</p>
-          <p><strong>Receiver:</strong> ${data.receiverName} (${data.receiverContact})</p>
-          <p><strong>From:</strong> ${data.senderRegion} - ${data.senderServiceCenter}</p>
-          <p><strong>To:</strong> ${data.receiverRegion} - ${data.receiverServiceCenter}</p>
-          <hr>
-          <p><strong>Base Cost:</strong> ৳${baseCost}</p>
-          ${weightCost > 0 ? `<p><strong>Extra Weight Cost:</strong> ৳${weightCost}</p>` : ""}
-          ${zoneCost > 0 ? `<p><strong>Outside District Cost:</strong> ৳${zoneCost}</p>` : ""}
-          <p style="font-size: 1.1em;"><strong>Total Cost:</strong> ৳${totalCost}</p>
-        </div>
-      `,
+    <div style="text-align: left;">
+      <p><strong>Tracking ID:</strong> ${trackingId}</p>
+      <p><strong>Created By:</strong> ${user?.displayName || user?.email || "Unknown"}</p>
+      <p><strong>Created On:</strong> ${formatDateTime(now.toISOString())}</p>
+      <hr>
+      <p><strong>Product Name:</strong> ${data.title}</p>
+      <p><strong>Parcel Type:</strong> ${data.type === "document" ? "Document" : "Non-Document"}</p>
+      <p><strong>Weight:</strong> ${weight} kg</p>
+      <p><strong>Sender:</strong> ${data.senderName} (${data.senderContact})</p>
+      <p><strong>Receiver:</strong> ${data.receiverName} (${data.receiverContact})</p>
+      <p><strong>From:</strong> ${data.senderRegion} - ${data.senderServiceCenter}</p>
+      <p><strong>To:</strong> ${data.receiverRegion} - ${data.receiverServiceCenter}</p>
+      <hr>
+      <p><strong>Base Cost:</strong> ৳${baseCost}</p>
+      ${weightCost > 0 ? `<p><strong>Extra Weight Cost:</strong> ৳${weightCost}</p>` : ""}
+      ${zoneCost > 0 ? `<p><strong>Outside District Cost:</strong> ৳${zoneCost}</p>` : ""}
+      <p style="font-size: 1.1em;"><strong>Total Cost:</strong> ৳${totalCost}</p>
+    </div>
+  `,
             icon: "info",
             showCancelButton: true,
             showDenyButton: true,
@@ -128,16 +124,25 @@ const SendParcel = () => {
             reverseButtons: true,
         }).then((result) => {
             if (result.isConfirmed) {
-                console.log("Saved Parcel:", parcelWithDate);
-                Swal.fire("Success!", "Parcel saved successfully.", "success");
-                reset();
+                // Save the parcel to the server here
+                axiosSecure.post('/parcels', parcelWithDate)
+                    .then(res => {
+                        console.log("Saved Parcel:", res.data);
+                        Swal.fire("Success!", "Parcel saved successfully.", "success");
+                        reset();
+                    })
+                    .catch(error => {
+                        console.error(error);
+                        Swal.fire("Error", "Failed to save parcel.", "error");
+                    });
             } else if (result.isDenied) {
                 Swal.fire("Edit your parcel information.", "", "info");
             }
         });
+
     };
 
-    
+
 
     return (
         <div className="max-w-3xl mx-auto p-6 space-y-6">
@@ -372,7 +377,6 @@ const SendParcel = () => {
 };
 
 export default SendParcel;
-
 
 
 
