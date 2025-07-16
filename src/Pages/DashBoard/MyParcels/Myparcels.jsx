@@ -4,6 +4,7 @@ import useAuth from "../../../hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import useAxiosSecure from "../../../hooks/useAxiosSecure";
 import Swal from "sweetalert2";
+import { useNavigate } from "react-router";
 
 
 const MyParcels = () => {
@@ -12,8 +13,9 @@ const MyParcels = () => {
     const [loading, setLoading] = useState(true);
 
     const { user } = useAuth();
+    const navigate=useNavigate()
     const axiosSecure = useAxiosSecure();
-    const { data: Parcels = [] } = useQuery({
+    const { data: Parcels = [] ,refetch} = useQuery({
         queryKey: ['my-parcels', user?.email],
         queryFn: async () => {
             const res = await axiosSecure.get(`parcels?email=${user.email}`)
@@ -36,6 +38,11 @@ const MyParcels = () => {
             });
     }, []);
 
+      const handlePay=(id)=>{
+        console.log('proceed to payment',id)
+        navigate(`/dashboard/payment/${id}`)
+    }
+
 
     const handleDelete = async (id) => {
         const confirm = await Swal.fire({
@@ -45,6 +52,8 @@ const MyParcels = () => {
             showCancelButton: true,
             confirmButtonText: "Yes, delete it!",
         });
+        refetch();
+  
 
         if (confirm.isConfirmed) {
             try {
@@ -112,6 +121,12 @@ const MyParcels = () => {
                                         className="btn text-black btn-xs btn-primary"
                                     >
                                         Details
+                                    </button>
+                                    <button
+                                        onClick={() => handlePay(parcel._id)}
+                                        className="btn btn-xs btn-error"
+                                    >
+                                        Pay
                                     </button>
                                     <button
                                         onClick={() => handleDelete(parcel._id)}
