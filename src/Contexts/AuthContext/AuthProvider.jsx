@@ -16,18 +16,14 @@ const AuthProvider = ({ children }) => {
     }
 
     const signIn = (email, password) => {
-        setLoading(true);
+        setLoading(true);   
         return signInWithEmailAndPassword(auth, email, password)
     }
 
-    const signInWithGoogle = () => {
-        setLoading(true);
-        return signInWithPopup(auth, googleProvider)
-    }
-    // const signInWithGoogle = () => {
-    //     setLoading(true);
-    //     return signInWithRedirect(auth, googleProvider)
-    // }
+        const signInWithGoogle = () => {
+            setLoading(true);
+            return signInWithPopup(auth, googleProvider)
+        }
 
     const logOut = () => {
         setLoading(true);
